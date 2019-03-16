@@ -1,4 +1,4 @@
-# Benders Algorithm to Solve of Mixed Integer Linear Programming more Quickly
+# Benders template with rays
 # Edward J. Xu, edxu96@outlook.com
 # March 16th, 2019
 module BendersMilp_EDXU
@@ -6,108 +6,98 @@ module BendersMilp_EDXU
     using JuMP
     using GLPKMathProgInterface
     function BendersMilp(; n_x, n_y, vec_max_y, vec_c, vec_f, vec_b, mat_a, mat_b, epsilon, timesIterationMax)
-        """
-        Benders Algorithm to Solve of Mixed Integer Linear Programming more Quickly
-
-            # Example:
-            push!(LOAD_PATH, "$(homedir())/Desktop/...")
-            cd("$(homedir())/Desktop/...")
-            using BendersMilp_EDXU
-            using JuMP
-            using GLPKMathProgInterface
-            n_x = 1
-            n_y = 1
-            vec_max_y = [10]
-            vec_c = [5]
-            vec_f = [-3]
-            vec_b = [4; 0; -13]
-            mat_a = [1; 2; 1]
-            # mat_b must be defined strictly as a column vector.
-            mat_b = rand(3,1)
-            mat_b[1] = 2
-            mat_b[2] = -1
-            mat_b[3] = -3
-            BendersMilp(n_x = n_x,
-                        n_y = n_y,
-                        vec_max_y = vec_max_y,
-                        vec_c = vec_c,
-                        vec_f = vec_f,
-                        vec_b = vec_b,
-                        mat_a = mat_a,
-                        mat_b = mat_b,
-                        epsilon = 0,
-                        timesIterationMax = 5)
-
-            # Another Example:
-            n_x_2 = 2
-            n_y_2 = 2
-            vec_max_y_2 = [10; 10]
-            vec_c_2 = [5; 3]
-            vec_f_2 = [-3; 1]
-            vec_b_2 = [4; 0; -13]
-            mat_a_2 = [1 3; 2 1; 1 -5]
-            mat_b_2 = [2 -4; -1 2; -3 1]
-            BendersMilp(n_x = n_x_2,
-                        n_y = n_y_2,
-                        vec_max_y = vec_max_y_2,
-                        vec_c = vec_c_2,
-                        vec_f = vec_f_2,
-                        vec_b = vec_b_2,
-                        mat_a = mat_a_2,
-                        mat_b = mat_b_2,
-                        epsilon = 0,
-                        timesIterationMax = 10)
-
-            Version: 1.0
-            Date: 190316
-            Edward J. Xu
-        """
+        # Define Master problem
         n_constraint = length(mat_a[:, 1])
+        model_mas = Model(solver = GLPKSolverMIP())
+        @variable(model_mas, q)
+        @variable(model_mas, vec_y[1: n_y] >= 0, Int)
+        @objective(model_mas, Min, (transpose(vec_f) * vec_y + q)[1])
+        @constraint(model_mas, vec_y[1: n_y] .<= vec_max_y)
+
+
+        function solve_master(vec_uBar, opt_cut::Bool )
+            if opt_cut
+                @constraint(model_mas, (transpose(vec_uBar) * (vec_b - mat_b * vec_y))[1] <= q)
+            else  # Add feasible cut Constraints
+                @constraint(model_mas, (transpose(vec_uBar) * (vec_b - mat_b * vec_y))[1] <= 0)
+            end
+            @constraint(model_mas, (transpose(vec_uBar) * (vec_b - mat_b * vec_y))[1] <= q)
+            solve(model_mas)
+            return getobjectivevalue(model_mas)
+        end
+
+
+        function solve_sub(vec_uBar, vec_yBar, n_constraint, vec_b, mat_b, mat_a)
+            model_sub = Model(solver = GLPKSolverLP())
+            @variable(model_sub, vec_u[1: n_constraint] >= 0)
+            @objective(model_sub, Max, (transpose(vec_b - mat_b * vec_yBar) * vec_u)[1])
+            @constraint(model_sub, transpose(mat_a) * vec_u .<= vec_c)
+            solution_sub = solve(model_sub)
+            print("------------------------------ Sub Problem ------------------------------\n",
+                  model_sub)
+            for i = 1: n_constraint
+                vec_uBar[i] = getvalue(vec_u[i])
+            end
+            if solution_sub == :Optimal
+                return (true, getobjectivevalue(model_sub), vec_uBar)
+            end
+            if solution_sub == :Unbounded
+                return (false, getobjectivevalue(model_sub), vec_uBar)
+            end
+        end
+
+
+        function solve_ray(vec_uBar, vec_yBar, n_constraint, vec_b, mat_b, mat_a)
+            # model_ray = Model(solver = GurobiSolver())
+            model_ray = Model(solver = GLPKSolverLP())
+            @variable(model_ray, vec_u[1: n_constraint] >= 0)
+            @objective(model_ray, Max, 1)
+            @constraint(model_ray, (transpose(vec_b - mat_b * vec_yBar) * vec_u)[1] == 1)
+            @constraint(model_ray, transpose(mat_a) * vec_u .<= 0)
+            solve(model_ray)
+            print("------------------------------ Ray Problem ------------------------------\n", model_ray)
+            for i = 1: n_constraint
+                vec_uBar[i] = getvalue(vec_u[i])
+            end
+            obj_ray = getobjectivevalue(model_ray)
+            return (obj_ray, vec_uBar)
+        end
+
+
+        # Begin Calculation
         let
-            model_mas = Model(solver = GLPKSolverMIP())
-            @variable(model_mas, q)
-            @variable(model_mas, vec_y[1: n_y] >= 0, Int)
-            @constraint(model_mas, vec_y .<= vec_max_y)
-            # add master-problem objective
-            @objective(model_mas, Min, transpose(vec_f) * vec_y + q)
             boundUp = Inf
             boundLow = - Inf
-            # definition of model_sub variables
-            vec_uBar = zeros(n_constraint, 1)
+            epsilon = 0
             # initial value of master variables
+            vec_uBar = zeros(n_constraint, 1)
             vec_yBar = zeros(n_y, 1)
-            #
-            obj_mas = 0
-            obj_sub = 0
             timesIteration = 1
-            while (boundUp - boundLow > epsilon && timesIteration < timesIterationMax)
-                # model_sub-problem
-                let
-                    model_sub = Model(solver = GLPKSolverLP())
-                    # create full model_sub-problem model, using the value of master variables ybar
-                    @variable(model_sub, vec_u[1: n_constraint] >= 0)
-                    @objective(model_sub, Max, (transpose(vec_b - mat_b * vec_yBar) * vec_u)[1])
-                    @constraint(model_sub, transpose(mat_a) * vec_u .<= vec_c)
-                    solve(model_sub)
-                    obj_sub = getobjectivevalue(model_sub)
-                    for i = 1: n_constraint
-                        vec_uBar[i] = getvalue(vec_u[i])
-                    end
+            while (boundUp - boundLow > epsilon)
+                (bool_solutionSubModel, sub_obj, vec_uBar) = solve_sub(vec_uBar, vec_yBar, n_constraint,
+                                                                       vec_b, mat_b, mat_a)
+                if bool_solutionSubModel
+                    boundUp = min(boundUp, sub_obj + (transpose(vec_f) * vec_yBar)[1])
+                else
+                    (obj_ray, vec_uBar) = solve_ray(vec_uBar, vec_yBar, n_constraint, vec_b, mat_b, mat_a)
                 end
-                boundUp = min(boundUp, obj_sub + (transpose(vec_f) * vec_yBar)[1])
-                # master-problem only add the feasibility constraint
-                # If mat_b is not defined strictly as a column vector, there will be a problem here.
-                @constraint(model_mas, (transpose(vec_uBar) * (vec_b - mat_b * vec_y))[1] <= q)
-                solve(model_mas)
-                obj_mas = getobjectivevalue(model_mas)
+                obj_mas = solve_master(vec_uBar, bool_solutionSubModel)
                 for i = 1: n_y
                     vec_yBar[i] = getvalue(vec_y[i])
                 end
                 boundLow = max(obj_mas, boundLow)
-                println("timesIteration: $(timesIteration)\t boundUp: $(boundUp)\t boundLow: $(boundLow)")
+                if bool_solutionSubModel
+                    println("-------------------- $(timesIteration)-th Iteration with Sub Problem ",
+                            "--------------------\n", "boundUp: $(boundUp), boundLow: $(boundLow), Sub: $(sub_obj).")
+                else
+                    println("-------------------- $(timesIteration)-th Iteration with Ray Problem ",
+                            "--------------------\n", "boundUp: $(boundUp), boundLow: $(boundLow), Sub: $(obj_ray).")
+                end
                 timesIteration += 1
             end
         end
+        println("----------------------------- Master Problem ----------------------------\n", model_mas)
+        #-------------------------------------------------------------------
+        println("----------------------------- Correct Ending ----------------------------\n")
     end
-    println("Correct Ending")
 end
