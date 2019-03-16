@@ -6,6 +6,10 @@ Benders decomposition (or Benders' decomposition) is a technique in mathematical
 https://en.wikipedia.org/wiki/Benders_decomposition
 
 Edward J. Xu
+
 edxu96@outlook.com
+
 Version: 1.0
+
 Date: 190316
+
