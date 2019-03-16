@@ -1,8 +1,8 @@
 # Benders Algorithm to Solve of Mixed Integer Linear Programming more Quickly
 # Edward J. Xu, edxu96@outlook.com
 # March 16th, 2019
-module BendersMILP_EDXU
-    export BendersMILP
+module BendersMilp_EDXU
+    export BendersMilp
     using JuMP
     using GLPKMathProgInterface
     function BendersMILP(; n_x, n_y, vec_max_y, vec_c, vec_f, vec_b, mat_a, mat_b, epsilon, timesIterationMax)
