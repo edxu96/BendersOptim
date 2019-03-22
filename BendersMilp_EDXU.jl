@@ -1,13 +1,13 @@
 # Benders Algorithm for MILP with Sub and Ray Problems
-# Version: 3.0
+# Version: 5.0
 # Author: Edward J. Xu, edxu96@outlook.com
-# Date: March 19th, 2019
+# Date: March 21th, 2019
 module BendersMilp_EDXU
     export BendersMilp
     using JuMP
     using GLPKMathProgInterface
     using PrettyTables
-    function BendersMilp(; n_x, n_y, vec_max_y, vec_c, vec_f, vec_b, mat_a, mat_b, epsilon, timesIterationMax)
+    function BendersMilp(; n_x, n_y, vec_min_y, vec_max_y, vec_c, vec_f, vec_b, mat_a, mat_b, epsilon, timesIterationMax)
         println("-------------------------------------------------------------------------\n",
                 "------------------------ 1/4. Begin Optimization ------------------------\n",
                 "-------------------------------------------------------------------------\n")
@@ -18,6 +18,7 @@ module BendersMilp_EDXU
         @variable(model_mas, vec_y[1: n_y] >= 0, Int)
         @objective(model_mas, Min, (transpose(vec_f) * vec_y + q)[1])
         @constraint(model_mas, vec_y[1: n_y] .<= vec_max_y)
+        @constraint(model_mas, vec_y[1: n_y] .>= vec_min_y)
 
 
         function solve_master(vec_uBar, opt_cut::Bool)
@@ -28,6 +29,7 @@ module BendersMilp_EDXU
             end
             @constraint(model_mas, (transpose(vec_uBar) * (vec_b - mat_b * vec_y))[1] <= q)
             solve(model_mas)
+            vec_result_y = getvalue(vec_y)
             return getobjectivevalue(model_mas)
         end
 
@@ -67,7 +69,7 @@ module BendersMilp_EDXU
         end
 
 
-        # Begin Calculation
+        # Begin Calculation --------------------------------------------------------------------------------------------
         let
             boundUp = Inf
             boundLow = - Inf
@@ -77,13 +79,17 @@ module BendersMilp_EDXU
             vec_yBar = zeros(n_y, 1)
             vec_result_x = length(n_x)
             dict_obj_mas = Dict()
+            dict_q = Dict()
             dict_obj_sub = Dict()
             dict_obj_ray = Dict()
             dict_boundUp = Dict()
             dict_boundLow = Dict()
             obj_sub = 0
             timesIteration = 1
-            while (boundUp - boundLow > epsilon)
+            # Must make sure "result_q == obj_sub" in the final iteration
+            # while ((boundUp - boundLow > epsilon) && (timesIteration <= timesIterationMax))  !!!
+            while ((!((boundUp - boundLow <= epsilon) && ((result_q == obj_sub)))) &&
+                (timesIteration <= timesIterationMax))
                 (bool_solutionSubModel, obj_sub, vec_uBar, vec_result_x) = solve_sub(vec_uBar, vec_yBar, n_constraint,
                                                                                      vec_b, mat_b, mat_a, vec_c)
                 if bool_solutionSubModel
@@ -99,30 +105,37 @@ module BendersMilp_EDXU
                 if bool_solutionSubModel
                     dict_obj_mas[timesIteration] = obj_mas
                     dict_obj_sub[timesIteration] = obj_sub
+                    result_q = getvalue(q)
+                    dict_q[timesIteration] = result_q
                     println("------------------ Result in $(timesIteration)-th Iteration with Sub ",
                             "-------------------\n", "boundUp: $(round(boundUp, digits = 5)), ",
-                            "boundLow: $(round(boundLow, digits = 5)), ",
-                            "obj_mas: $(round(obj_mas, digits = 5)), obj_sub: $(round(obj_sub, digits = 5)).")
+                            "boundLow: $(round(boundLow, digits = 5)), obj_mas: $(round(obj_mas, digits = 5)), ",
+                            "q: $result_q, obj_sub: $(round(obj_sub, digits = 5)).")
                 else
                     dict_obj_mas[timesIteration] = obj_mas
                     dict_obj_ray[timesIteration] = obj_ray
+                    result_q = getvalue(q)
+                    dict_q[timesIteration] = result_q
                     println("------------------ Result in $(timesIteration)-th Iteration with Ray ",
                             "-------------------\n", "boundUp: $(round(boundUp, digits = 5)), ",
-                            "boundLow: $(round(boundLow, digits = 5)), ",
-                            "obj_mas: $(round(obj_mas, digits = 5)), obj_ray: $(round(obj_ray, digits = 5)).")
+                            "boundLow: $(round(boundLow, digits = 5)), obj_mas: $(round(obj_mas, digits = 5)), ",
+                            "q: $result_q, obj_ray: $(round(obj_ray, digits = 5)).")
                 end
                 timesIteration += 1
-            end
-            println("----------------------------- Master Problem ----------------------------\n",
-                    model_mas)
+            end  # -----------------------------------------------------------------------------------------------------
+            println("obj_mas: $(getobjectivevalue(model_mas))")
+            println("----------------------------- Master Problem ----------------------------\n")
+            println(model_mas)
             println("-------------------------------------------------------------------------\n",
                     "------------------------------ 2/4. Result ------------------------------\n",
                     "-------------------------------------------------------------------------")
             println("boundUp: $(round(boundUp, digits = 5)), boundLow: $(round(boundLow, digits = 5)), ",
-                    "difference: $(round(boundUp - boundLow, digits = 5)))")
+                    "difference: $(round(boundUp - boundLow, digits = 5))")
             println("vec_x: $vec_result_x")
             vec_result_y = getvalue(vec_y)
+            result_q = getvalue(q)
             println("vec_y: $vec_result_y")
+            println("result_q: $result_q")
             println("-------------------------------------------------------------------------\n",
                     "------------------------- 3/4. Iteration Result -------------------------\n",
                     "-------------------------------------------------------------------------")
@@ -132,12 +145,14 @@ module BendersMilp_EDXU
             vec_boundLow = zeros(timesIteration - 1)
             vec_obj_subRay = zeros(timesIteration - 1)
             vec_obj_mas = zeros(timesIteration - 1)
+            vec_q = zeros(timesIteration - 1)
             vec_type = repeat(["ray"], (timesIteration - 1))
             #
             for i = 1: (timesIteration - 1)
                 vec_obj_mas[i] = round(dict_obj_mas[i], digits = 5)
                 vec_boundUp[i] = round(dict_boundUp[i], digits = 5)
                 vec_boundLow[i] = round(dict_boundLow[i], digits = 5)
+                vec_q[i] = round(dict_q[i], digits = 5)
                 if haskey(dict_obj_sub, i)
                     vec_type[i] = "sub"
                     vec_obj_subRay[i] = round(dict_obj_sub[i], digits = 5)
@@ -146,11 +161,11 @@ module BendersMilp_EDXU
                 end
             end
             table_iterationResult = hcat(seq_timesIteration, vec_boundUp, vec_boundLow,
-                                         vec_obj_mas, vec_type, vec_obj_subRay)
-            pretty_table(table_iterationResult, ["Seq", "boundUp", "boundLow", "obj_mas", "type_sub", "obj_sub/ray"],
+                                         vec_obj_mas, vec_q, vec_type, vec_obj_subRay)
+            pretty_table(table_iterationResult,
+                         ["Seq", "boundUp", "boundLow", "obj_mas", "q", "sub/ray", "obj_sub/ray"],
                          compact; alignment=:l)
         end
-        # return (vec_result_x, vec_result_y, dict_obj_mas, dict_obj_sub, dict_obj_ray)
         println("-------------------------------------------------------------------------\n",
                 "-------------------------- 4/4. Nominal Ending --------------------------\n",
                 "-------------------------------------------------------------------------\n")
