@@ -4,7 +4,8 @@
 # Date: March 20th, 2019
 push!(LOAD_PATH, "$(homedir())/Desktop/OptiGas, DTU42136")
 cd("$(homedir())/Desktop/OptiGas, DTU42136")
-using BendersMilp_EDXU
+# using BendersMilp_EDXU
+using Benders
 using LinearAlgebra
 # -------------------------------------------------------------------
 # 1. Parameters
@@ -101,17 +102,17 @@ for m = 1: numNodes
 end
 vec_f_1 = hcat(vec_f_1)
 #
-BendersMilp(n_x = numNodes^2,
-            n_y = numNodes^2,
-            vec_min_y = vec_min_y_1,
-            vec_max_y = vec_max_y_1,
-            vec_c = vec_c_1,
-            vec_f = vec_f_1,
-            vec_b = vec_b_1,
-            mat_a = mat_a_1,
-            mat_b = mat_b_1,
-            epsilon = 0.0001,
-            timesIterationMax = 1000)
+Benders.milp(n_x = numNodes^2,
+             n_y = numNodes^2,
+             vec_min_y = vec_min_y_1,
+             vec_max_y = vec_max_y_1,
+             vec_c = vec_c_1,
+             vec_f = vec_f_1,
+             vec_b = vec_b_1,
+             mat_a = mat_a_1,
+             mat_b = mat_b_1,
+             epsilon = 0.0001,
+             timesIterationMax = 1000)
 # 1280 - sum(mat_arcTwoNodes .* mat_fixedCost)
 # ----------------------------------------------------------------------------------------------------------------------
 # Question 5
@@ -163,7 +164,7 @@ for m = 1: numNodes
 end
 vec_f_2 = hcat(vec_f_2)
 #
-BendersMilp(n_x = numNodes^2,
+Benders.milp(n_x = numNodes^2,
             n_y = numNodes^2,
             vec_min_y = repeat([0], numNodes^2),
             vec_max_y = vec_max_y_2,
