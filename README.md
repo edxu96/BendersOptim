@@ -16,7 +16,7 @@ using Benders
 
 ## 2. Generic Benders Decomposition for Mixed Integer Linear Programming
 
-![Standard MILP]（images/standard_milp.png）
+![Standard MILP]（images/standard_milp.jpg）
 
 ```Julia
 Bender.milp(n_x, n_y, vec_min_y, vec_max_y, vec_c, vec_f, 
@@ -25,7 +25,7 @@ Bender.milp(n_x, n_y, vec_min_y, vec_max_y, vec_c, vec_f,
 
 ## 3. L-Shaped Benders Decomposition for Stochastic Programming without Integer Variables in Second Stage
 
-![Stochastic Programming without Integer Variables in Second Stage]（images/l-shaped.png）
+![Stochastic Programming without Integer Variables in Second Stage]（images/l-shaped.jpg）
 
 ```Julia
 Bender.lshaped(n_x, n_y, vec_min_y, vec_max_y, vec_f, 
