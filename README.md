@@ -25,7 +25,7 @@ Bender.milp(n_x, n_y, vec_min_y, vec_max_y, vec_c, vec_f,
 
 ## 3. L-Shaped Benders Decomposition for Stochastic Programming without Integer Variables in Second Stage
 
-![Stochastic Programming without Integer Variables in Second Stage](images/l-shaped.jpg)
+![Stochastic Programming without Integer Variables in Second Stage](images/l-shaped.png)
 
 ```Julia
 Bender.lshaped(n_x, n_y, vec_min_y, vec_max_y, vec_f,
