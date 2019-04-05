@@ -10,7 +10,7 @@ function lp(; n_x, vec_c, vec_b, mat_a)
             "------------------------ 1/2. Begin Optimization ------------------------\n",
             "-------------------------------------------------------------------------\n")
     model = Model(solver = GLPKSolverMIP())
-    @variable(model, vec_x[1: n_x], Int)
+    @variable(model, vec_x[1: n_x] >= 0)
     @objective(model, Min, (transpose(vec_c) * vec_x)[1])
     constraintsForDual = @constraint(model, mat_a * vec_x .>= vec_b)
     solve(model)
