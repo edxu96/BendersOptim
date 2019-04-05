@@ -5,7 +5,6 @@ Benders decomposition (or Benders' decomposition) is a technique in mathematical
 
 https://en.wikipedia.org/wiki/Benders_decomposition
 
-***
 # How to use
 
 ## 1. Import 
