@@ -46,6 +46,6 @@ Bender.lshaped(n_x, n_y, vec_min_y, vec_max_y, vec_f,
 
 ***
 
-Edward J. Xu (edxu96@outlook.com) (edxu96.github.io)
-Version: 2.1
+Edward J. Xu (edxu96@outlook.com) (edxu96.github.io)  
+Version: 2.1  
 Date: July 28th, 2019
