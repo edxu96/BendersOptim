@@ -2,6 +2,10 @@
 
 Benders algorithm to solve mixed integer linear programming, especially stochastic programming in seconds!
 
+This repo has been archived in 190728. New update will be made to edxu96/MatrixOptim, which is the aggregation of robust optimization and matrix optimization. It's in matrix form as well, and there is a new function tool to convert the model to matrix form.
+
+***
+
 According to wikipedia:
 > Benders decomposition (or Benders' decomposition) is a technique in mathematical programming that allows the solution
 > of very large linear programming problems that have a special block structure. This block structure often occurs in
