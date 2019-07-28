@@ -14,7 +14,7 @@ There are two algorithms, with one for standard MILP, and the other one specific
 integer variables in second stage.  
 
 For detailed explanation, refer
-to [Cookbook for Benders Decomposition, EDXU](documents/Cookbook_for_Benders_Decomposition.pdf).  
+to [Cookbook for Benders Decomposition, EDXU](files/cookbook.pdf).  
 
 # How to use
 
